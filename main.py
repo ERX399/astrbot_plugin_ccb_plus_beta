@@ -14,11 +14,11 @@ import os
 DATA_FILE = "data/ccb.json"
 LOG_FILE = "data/ccb_log.json"
 
-a1 = "id"       # qq号
-a2 = "num"      # 北朝次数
-a3 = "vol"      # 被注入量
-a4 = "ccb_by"   # 被谁朝了
-a5 = "max"      # 最大值
+a1 = "id"
+a2 = "num"
+a3 = "vol"
+a4 = "ccb_by"
+a5 = "max"
 
 
 def get_avatar(user_id: str) -> bytes:
@@ -30,7 +30,7 @@ def makeit(group_data, target_user_id):
 
 
 @filter.command_group("ccb")
-@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS", "1.1.6")
+@register("ccb", "Koikokokokoro", "ccb PLUS", "1.1.7")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -46,18 +46,17 @@ class ccb(Star):
         self.selfdo = self.config.get("self_ccb", False)
         self.crit_prob = self.config.get("crit_prob")
         self.is_log = self.config.get("is_log")
-
-    # ── 工具方法 ──────────────────────────────────────────
+        self.super_crit_enabled = config.get("super_crit_enabled", False)
+        self.super_crit_multiplier = config.get("super_crit_multiplier", 5.0)
+        self.super_crit_state = {}
 
     def _check_group(self, group_id: str) -> bool:
-        """检查当前群聊是否在白名单内。空列表 = 不限制。"""
         gl = [str(g) for g in self.group_white_list]
         if not gl:
             return True
         return str(group_id) in gl
 
     async def _is_admin(self, event: AstrMessageEvent) -> bool:
-        """检查发送者是否为 AstrBot 管理员。"""
         try:
             return event.is_admin()
         except Exception:
@@ -70,7 +69,6 @@ class ccb(Star):
         return False
 
     def _recalc_max(self, item: dict):
-        """重新计算某条记录的 max 字段及其产生者标记。"""
         total_vol = float(item.get(a3, 0))
         total_num = int(item.get(a2, 0))
         ccb_by = item.get(a4, {}) or {}
@@ -79,11 +77,9 @@ class ccb(Star):
             return
         best_id = max(ccb_by.items(), key=lambda x: x[1].get("count", 0))[0]
         best_val = round(total_vol / total_num, 2)
-        # 找实际最大单次
         for uid, info in ccb_by.items():
-            count = info.get("count", 0)
-            if count > 0:
-                avg = round(total_vol / total_num, 2)  # 没有单次值，只能算平均
+            if info.get("count", 0) > 0:
+                avg = round(total_vol / total_num, 2)
                 if avg >= best_val:
                     best_val = avg
                     best_id = uid
@@ -98,7 +94,7 @@ class ccb(Star):
                 with open(DATA_FILE, "r") as f:
                     return json.load(f)
         except Exception as e:
-            logger.error(f"读取数据错误: {e}")
+            logger.error(f"read error: {e}")
         return {}
 
     def write_data(self, data):
@@ -106,9 +102,9 @@ class ccb(Star):
             with open(DATA_FILE, "w") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            logger.error(f"写入数据错误: {e}")
+            logger.error(f"write error: {e}")
 
-    def append_log(self, group_id: str, executor_id: str, target_id: str, time: float, vol: float):
+    def append_log(self, group_id, executor_id, target_id, dur, vol):
         try:
             if os.path.exists(LOG_FILE):
                 with open(LOG_FILE, 'r', encoding='utf-8') as lf:
@@ -120,43 +116,32 @@ class ccb(Star):
                         logs = []
             else:
                 logs = []
-            entry = {
-                "group": group_id,
-                "executor": executor_id,
-                "target": target_id,
-                "time": time,
-                "vol": str(round(float(vol), 2))
-            }
+            entry = {"group": group_id, "executor": executor_id, "target": target_id, "time": dur, "vol": str(round(float(vol), 2))}
             logs.append(entry)
             with open(LOG_FILE, 'w', encoding='utf-8') as lf:
                 json.dump(logs, lf, ensure_ascii=False, indent=2)
         except Exception as e:
-            logger.error(f"append_log 失败: {e}")
+            logger.error(f"append_log error: {e}")
 
     def _save_white_list(self):
-        """尝试将 self.white_list 写回插件配置（AstrBotConfig）。"""
         try:
             self.config["white_list"] = self.white_list
             self.config.save()
         except Exception as e:
-            logger.warning(f"保存 white_list 到配置失败: {e}")
+            logger.warning(f"save white_list error: {e}")
 
-    # ── 指令：ccb ────────────────────────────────────────
-
-    @filter.command("ccb")
+    @filter.command("ccb", group="ccb")
     async def ccb(self, event: AstrMessageEvent):
-        """ccb [@目标] — 对目标进行赛博sex"""
-        import time, random
+        import time as _time, random as _random
 
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
-            yield event.plain_result("本群未开启 CCB 功能喵~")
             return
 
         send_id = str(event.get_sender_id())
         self_id = str(event.get_self_id())
         actor_id = send_id
-        now = time.time()
+        now = _time.time()
 
         ban_end = self.ban_list.get(actor_id, 0)
         if now < ban_end:
@@ -194,13 +179,18 @@ class ccb(Star):
             yield event.plain_result("兄啊金箔怎么还能捅到自己的啊（恼）")
             return
 
-        duration = round(random.uniform(1, 60), 2)
-        V = round(random.uniform(1, 100), 2)
+        duration = round(_random.uniform(1, 60), 2)
+        V = round(_random.uniform(1, 100), 2)
         crit = False
         is_log = self.is_log
-        if random.random() < self.crit_prob:
-            V = round(V * 2, 2)
+
+        if _random.random() < self.crit_prob:
+            mult = 2
+            if self.super_crit_enabled and await self._is_admin(event) and self.super_crit_state.get(send_id, False):
+                mult = self.super_crit_multiplier
+            V = round(V * mult, 2)
             crit = True
+
         pic = get_avatar(target_user_id)
 
         all_data = self.read_data()
@@ -213,8 +203,7 @@ class ccb(Star):
                     if item.get(a1) == target_user_id:
                         nickname = target_user_id
                         if event.get_platform_name() == "aiocqhttp":
-                            from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import \
-                                AiocqhttpMessageEvent
+                            from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
                             assert isinstance(event, AiocqhttpMessageEvent)
                             stranger_info = await event.bot.api.call_action(
                                 'get_stranger_info', user_id=target_user_id
@@ -259,17 +248,21 @@ class ccb(Star):
 
                         item[a4] = ccb_by
 
+                        crit_text = "💥 暴击！"
+                        if crit and mult > 2:
+                            crit_text = f"💥 超级暴击！(x{mult})"
+
                         if crit:
                             chain = [
-                                Comp.Plain(f"你和{nickname}发生了{duration}min长的ccb行为，向ta注入了 💥 暴击！{V:.2f}ml的生命因子"),
+                                Comp.Plain(f"你和{nickname}发生了{duration}min长的ccb行为，向ta注入了 {crit_text}{V:.2f}ml的生命因子"),
                                 Comp.Image.fromURL(pic),
-                                Comp.Plain(f"这是ta的第{item[a2]}次。")
+                                Comp.Plain(f"这是ta的第{item[a2]}次")
                             ]
                         else:
                             chain = [
                                 Comp.Plain(f"你和{nickname}发生了{duration}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
                                 Comp.Image.fromURL(pic),
-                                Comp.Plain(f"这是ta的第{item[a2]}次。")
+                                Comp.Plain(f"这是ta的第{item[a2]}次")
                             ]
                         yield event.chain_result(chain)
 
@@ -277,17 +270,17 @@ class ccb(Star):
                             try:
                                 self.append_log(group_id, send_id, target_user_id, duration, V)
                             except Exception as e:
-                                logger.warning(f"记录日志失败: {e}")
+                                logger.warning(f"log error: {e}")
 
                         all_data[group_id] = group_data
                         self.write_data(all_data)
 
-                        if random.random() < self.yw_prob:
+                        if _random.random() < self.yw_prob:
                             self.ban_list[actor_id] = now + self.ban_duration
                             yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲）")
                         return
             except Exception as e:
-                logger.error(f"报错: {e}")
+                logger.error(f"error: {e}")
                 yield event.plain_result("对方拒绝了和你ccb")
                 return
 
@@ -305,7 +298,7 @@ class ccb(Star):
                 chain = [
                     Comp.Plain(f"你和{nickname}发生了{duration}min长的ccb行为，向ta注入了{V:.2f}ml的生命因子"),
                     Comp.Image.fromURL(pic),
-                    Comp.Plain("这是ta的初体验。")
+                    Comp.Plain("这是ta的初体验")
                 ]
                 yield event.chain_result(chain)
 
@@ -324,30 +317,26 @@ class ccb(Star):
                     try:
                         self.append_log(group_id, send_id, target_user_id, duration, V)
                     except Exception as e:
-                        logger.warning(f"记录日志失败: {e}")
+                        logger.warning(f"log error: {e}")
 
-                if random.random() < self.yw_prob:
+                if _random.random() < self.yw_prob:
                     self.ban_list[actor_id] = now + self.ban_duration
                     yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲）")
                 return
             except Exception as e:
-                logger.error(f"报错: {e}")
+                logger.error(f"error: {e}")
                 yield event.plain_result("对方拒绝了和你ccb")
                 return
 
-    # ── 指令：ccbtop ─────────────────────────────────────
-
-    @filter.command("ccbtop")
+    @filter.command("ccbtop", group="ccb")
     async def ccbtop(self, event: AstrMessageEvent):
-        """被ccb次数排行"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
-            yield event.plain_result("当前群未开启此功能")
             return
 
         group_data = self.read_data().get(group_id, [])
         if not group_data:
-            yield event.plain_result("当前群暂无ccb记录。")
+            yield event.plain_result("当前群暂无ccb记录")
             return
 
         top5 = sorted(group_data, key=lambda x: int(x.get(a2, 0)), reverse=True)[:5]
@@ -365,19 +354,15 @@ class ccb(Star):
             msg += f"{i}. {nick} - 次数：{r[a2]}\n"
         yield event.plain_result(msg)
 
-    # ── 指令：ccbvol ─────────────────────────────────────
-
-    @filter.command("ccbvol")
+    @filter.command("ccbvol", group="ccb")
     async def ccbvol(self, event: AstrMessageEvent):
-        """被注入量排行"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
-            yield event.plain_result("当前群未开启此功能")
             return
 
         group_data = self.read_data().get(group_id, [])
         if not group_data:
-            yield event.plain_result("当前群暂无ccb记录。")
+            yield event.plain_result("当前群暂无ccb记录")
             return
 
         top5 = sorted(group_data, key=lambda x: float(x.get(a3, 0)), reverse=True)[:5]
@@ -395,14 +380,10 @@ class ccb(Star):
             msg += f"{i}. {nick} - 累计注入：{float(r[a3]):.2f}ml\n"
         yield event.plain_result(msg)
 
-    # ── 指令：ccbinfo ────────────────────────────────────
-
-    @filter.command("ccbinfo")
+    @filter.command("ccbinfo", group="ccb")
     async def ccbinfo(self, event: AstrMessageEvent):
-        """查询某人ccb信息 [@目标]"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
-            yield event.plain_result("当前群未开启此功能")
             return
 
         self_id = str(event.get_self_id())
@@ -417,7 +398,7 @@ class ccb(Star):
 
         record = next((r for r in group_data if r.get(a1) == target_user_id), None)
         if not record:
-            yield event.plain_result("该用户暂无ccb记录。")
+            yield event.plain_result("该用户暂无ccb记录")
             return
 
         total_num = int(record.get(a2, 0))
@@ -450,7 +431,6 @@ class ccb(Star):
             if info.get("first"):
                 first_actor = actor_id
                 break
-
         if not first_actor and ccb_by:
             first_actor = max(ccb_by.items(), key=lambda x: x[1].get("count", 0))[0]
 
@@ -476,19 +456,15 @@ class ccb(Star):
         )
         yield event.plain_result(msg)
 
-    # ── 指令：ccbmax ─────────────────────────────────────
-
-    @filter.command("ccbmax")
+    @filter.command("ccbmax", group="ccb")
     async def ccbmax(self, event: AstrMessageEvent):
-        """单次最大注入排行"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
-            yield event.plain_result("当前群未开启此功能")
             return
 
         group_data = self.read_data().get(group_id, [])
         if not group_data:
-            yield event.plain_result("当前群暂无ccb记录。")
+            yield event.plain_result("当前群暂无ccb记录")
             return
 
         entries = []
@@ -549,24 +525,20 @@ class ccb(Star):
 
         yield event.plain_result(msg)
 
-    # ── 指令：xnn ────────────────────────────────────────
-
-    @filter.command("xnn")
+    @filter.command("xnn", group="ccb")
     async def xnn(self, event: AstrMessageEvent):
-        """小南梁榜"""
         w_num = 1.0
         w_vol = 0.1
         w_action = 0.5
 
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
-            yield event.plain_result("当前群未开启此功能")
             return
 
         all_data = self.read_data()
         group_data = all_data.get(group_id, [])
         if not group_data:
-            yield event.plain_result("当前群暂无ccb记录。")
+            yield event.plain_result("当前群暂无ccb记录")
             return
 
         actor_actions = {}
@@ -602,31 +574,22 @@ class ccb(Star):
 
         yield event.plain_result(msg)
 
-    # ── 指令：ccbclear（管理员）───────────────────────────
-
-    @filter.command("ccbclear")
+    @filter.command("ccbclear", group="ccb")
     async def ccbclear(self, event: AstrMessageEvent):
-        """
-        清除某人的所有CCB记录（管理员指令）。
-        用法：ccbclear [@目标]  — 未艾特则清除自己
-        效果：删除该用户 "被CCB" 的记录，同时从其他人的 ccb_by 中移除此人。
-        """
         if not await self._is_admin(event):
-            yield event.plain_result("只有 AstrBot 管理员才能使用此命令。")
+            yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
 
         group_id = str(event.get_group_id())
         self_id = str(event.get_self_id())
         sender_id = str(event.get_sender_id())
 
-        # 解析目标
         target_user_id = next(
             (str(seg.qq) for seg in event.get_messages()
              if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
             sender_id
         )
 
-        # 获取昵称
         target_nick = target_user_id
         if event.get_platform_name() == "aiocqhttp":
             try:
@@ -642,12 +605,10 @@ class ccb(Star):
         all_data = self.read_data()
         group_data = all_data.get(group_id, [])
 
-        # 1. 删除该用户本身的被CCB记录
         before_len = len(group_data)
         group_data = [r for r in group_data if r.get(a1) != target_user_id]
         removed_self = before_len - len(group_data)
 
-        # 2. 从其他人的 ccb_by 中移除该用户
         removed_from_others = 0
         modified_list = []
         for rec in group_data:
@@ -658,11 +619,8 @@ class ccb(Star):
                 rec[a4] = ccb_by
                 modified_list.append(rec)
 
-        # 3. 重新计算受影响记录（被删人曾朝过的人）的 max
         for rec in modified_list:
-            # 重新计算被CCB次数和总量
             rec[a2] = sum(info.get("count", 0) for info in (rec.get(a4, {}) or {}).values())
-            # vol 不变（总量不受影响——只移除朝壁记录不影响诗经）
             self._recalc_max(rec)
 
         all_data[group_id] = group_data if group_data else all_data.pop(group_id, None) or group_data
@@ -674,21 +632,14 @@ class ccb(Star):
             f"🧹 已清除 {target_nick} 的 CCB 记录：\n"
             f"• 删除自身被CCB记录：{removed_self} 条\n"
             f"• 移除朝壁他人记录：{removed_from_others} 次\n"
-            f"• 相关数据已重新校准。"
+            f"• 相关数据已重新校准"
         )
         yield event.plain_result(msg)
 
-    # ── 指令：ccbnodo（管理员）────────────────────────────
-
-    @filter.command("ccbnodo")
+    @filter.command("ccbnodo", group="ccb")
     async def ccbnodo(self, event: AstrMessageEvent):
-        """
-        快捷切换防被CCB状态（管理员指令）。
-        用法：ccbnodo [@目标]  — 未艾特则对自己操作
-        效果：若目标不在防护名单中则加入；已在则移除。
-        """
         if not await self._is_admin(event):
-            yield event.plain_result("只有 AstrBot 管理员才能使用此命令。")
+            yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
 
         self_id = str(event.get_self_id())
@@ -713,12 +664,27 @@ class ccb(Star):
                 pass
 
         if target_user_id in self.white_list:
-            # 已在名单中 → 移除
             self.white_list.remove(target_user_id)
             self._save_white_list()
-            yield event.plain_result(f"🔓 已解除 {target_nick} 的防CCB保护，现在可以对其CCB了。")
+            yield event.plain_result(f"已解除 {target_nick} 的防CCB保护，现在可以对其CCB了")
         else:
-            # 不在名单中 → 添加
             self.white_list.append(target_user_id)
             self._save_white_list()
-            yield event.plain_result(f"🛡️ 已将 {target_nick} 加入防CCB保护名单，任何人都不能对其CCB。")
+            yield event.plain_result(f"已将 {target_nick} 加入防CCB保护名单，任何人都不能对其CCB")
+
+    @filter.command("ccbsuper", group="ccb")
+    async def ccbsuper(self, event: AstrMessageEvent):
+        if not await self._is_admin(event):
+            yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
+            return
+        if not self.super_crit_enabled:
+            yield event.plain_result("超级暴击功能未在插件配置中启用")
+            return
+
+        sender_id = str(event.get_sender_id())
+        current = self.super_crit_state.get(sender_id, False)
+        new_state = not current
+        self.super_crit_state[sender_id] = new_state
+        yield event.plain_result(
+            f"管理员超级暴击已{'开启' if new_state else '关闭'}（倍率：{self.super_crit_multiplier}x）"
+        )
