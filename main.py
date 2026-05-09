@@ -79,7 +79,7 @@ class DailyGroupLimiter:
         return data[today][str(group_id)]
 
 
-@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS Beta：群聊白名单、每日次数限制、默认白名单保护、管理清理、防CCB、管理员暴击增强", "1.2.8-beta")
+@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS Beta：群聊白名单、群单独限制、默认白名单保护、管理清理、防CCB、管理员暴击增强", "1.2.9-beta")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -102,14 +102,8 @@ class ccb(Star):
         self.admin_extra_crit_enabled = config.get("admin_extra_crit_enabled", False)
         self.admin_extra_crit_bonus = config.get("admin_extra_crit_bonus", 0.3)
 
-        # 群聊限制配置模块
-        group_limit_config = config.get("group_limit", {}) or {}
-        self.group_daily_ccb_limit = int(
-            group_limit_config.get(
-                "daily_ccb_limit",
-                config.get("group_daily_ccb_limit", 0)  # 兼容旧配置
-            ) or 0
-        )
+        # 群聊单独限制配置模块
+        self.group_configs = config.get("group_configs", []) or []
         self.daily_limiter = DailyGroupLimiter(DAILY_LIMIT_FILE)
 
     def _check_group(self, group_id: str) -> bool:
@@ -117,6 +111,31 @@ class ccb(Star):
         if not gl:
             return True
         return str(group_id) in gl
+
+    def _iter_group_configs(self):
+        """兼容 AstrBot template_list 可能返回的 list/dict 结构。"""
+        cfg = self.group_configs or []
+        if isinstance(cfg, list):
+            for item in cfg:
+                if isinstance(item, dict):
+                    yield item
+        elif isinstance(cfg, dict):
+            for item in cfg.values():
+                if isinstance(item, dict):
+                    yield item
+
+    def _get_group_daily_limit(self, group_id: str) -> int:
+        """获取当前群每日 CCB 上限；无匹配配置或未启用则不限制。"""
+        gid = str(group_id)
+        for item in self._iter_group_configs():
+            if not item.get("enable", True):
+                continue
+            if str(item.get("group_id", "")).strip() == gid:
+                try:
+                    return int(item.get("daily_ccb_limit", 0) or 0)
+                except Exception:
+                    return 0
+        return 0
 
     async def _is_admin(self, event: AstrMessageEvent) -> bool:
         try:
@@ -249,9 +268,10 @@ class ccb(Star):
             return
         self._sync_event_bot_white_list(event)
 
-        can_use, remain = self.daily_limiter.can_use(group_id, self.group_daily_ccb_limit)
+        daily_limit = self._get_group_daily_limit(group_id)
+        can_use, remain = self.daily_limiter.can_use(group_id, daily_limit)
         if not can_use:
-            yield event.plain_result(f"本群今日 CCB 次数已达上限（{self.group_daily_ccb_limit}次），明天再来吧。")
+            yield event.plain_result(f"本群今日 CCB 次数已达上限（{daily_limit}次），明天再来吧。")
             return
 
         send_id = str(event.get_sender_id())
@@ -389,7 +409,7 @@ class ccb(Star):
 
                         all_data[group_id] = group_data
                         self.write_data(all_data)
-                        self.daily_limiter.increase(group_id, self.group_daily_ccb_limit)
+                        self.daily_limiter.increase(group_id, daily_limit)
 
                         if _random_module.random() < self.yw_prob:
                             self.ban_list[actor_id] = now + self.ban_duration
@@ -428,7 +448,7 @@ class ccb(Star):
                 group_data.append(new_record)
                 all_data[group_id] = group_data
                 self.write_data(all_data)
-                self.daily_limiter.increase(group_id, self.group_daily_ccb_limit)
+                self.daily_limiter.increase(group_id, daily_limit)
 
                 if is_log:
                     try:
