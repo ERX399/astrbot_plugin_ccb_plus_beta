@@ -1,80 +1,80 @@
 {
-  "yw_window": {
-    "description": "触发赛博阳痿的窗口时间（秒）",
-    "type": "int",
-    "default": 60,
-    "hint": "统计多少秒内的调用次数。"
-  },
-  "yw_threshold": {
-    "description": "窗口时间内最大ccb数",
-    "type": "int",
-    "default": 5,
-    "hint": "同一人多少次请求后会被禁用。"
-  },
-  "yw_ban_duration": {
-    "description": "养胃时长（秒）",
-    "type": "int",
-    "default": 900,
-    "hint": "被触发限流后禁用多长时间。"
-  },
-  "yw_probability": {
-    "description": "随机养胃概率",
-    "type": "float",
-    "default": 0.1,
-    "hint": "每次 CCB 完成后，有多大概率养胃。"
+  "group_white_list": {
+    "description": "【权限】允许使用插件的群聊白名单",
+    "type": "list",
+    "default": [],
+    "hint": "填写群号列表后，仅列表中的群聊可使用本插件；留空则所有群聊均可使用。"
   },
   "white_list": {
-    "description": "不能进行ccb的id列表",
+    "description": "【保护】防被CCB的用户白名单",
     "type": "list",
     "default": [],
-    "hint": "当目标在此列表中时，不能对其ccb。"
-  },
-  "group_white_list": {
-    "description": "白名单群聊列表",
-    "type": "list",
-    "default": [],
-    "hint": "仅在列表中的群聊可使用本插件功能。留空则不限制（所有群聊可用）。"
+    "hint": "填写用户QQ号列表后，列表中的用户不能被CCB；可用 /ccb ccbnodo 快捷切换。"
   },
   "self_ccb": {
-    "description": "是否允许0721",
+    "description": "【行为】是否允许未@时对自己CCB",
     "type": "bool",
     "default": false,
-    "hint": "为true时当ccb指令未指定对象时进行0721。"
+    "hint": "为 true 时，/ccb ccb 未指定对象会对自己执行；为 false 时会拒绝。"
   },
   "crit_prob": {
-    "description": "暴击概率",
+    "description": "【暴击】普通暴击概率",
     "type": "float",
     "default": 0.2,
-    "hint": "ccb时暴击的概率。"
+    "hint": "每次CCB触发普通暴击的基础概率，范围建议 0~1。"
   },
   "super_crit_enabled": {
-    "description": "是否启用管理员超级暴击",
+    "description": "【暴击】启用管理员超级暴击倍率",
     "type": "bool",
     "default": false,
     "hint": "开启后，AstrBot管理员触发暴击时自动使用超级倍率，无需指令开关。"
   },
   "super_crit_multiplier": {
-    "description": "管理员超级暴击倍率",
+    "description": "【暴击】管理员超级暴击倍率",
     "type": "float",
     "default": 5.0,
-    "hint": "管理员暴击时的注入量倍率（默认5.0，即5倍）。"
-  },
-  "is_log": {
-    "description": "完整日志记录",
-    "type": "bool",
-    "default": "false",
-    "hint": "是否独立保留每一条ccb记录，包括双方与注入量。"
+    "hint": "管理员暴击时的注入量倍率；仅在启用管理员超级暴击后生效。"
   },
   "admin_extra_crit_enabled": {
-    "description": "是否启用管理员额外暴击率",
+    "description": "【暴击】启用管理员额外暴击率",
     "type": "bool",
     "default": false,
     "hint": "开启后，AstrBot管理员自动获得额外暴击率，无需指令开关。"
   },
   "admin_extra_crit_bonus": {
-    "description": "管理员额外暴击率",
+    "description": "【暴击】管理员额外暴击率",
     "type": "float",
     "default": 0.3,
-    "hint": "管理员在 crit_prob 基础上额外增加的暴击概率，默认0.3。"
+    "hint": "管理员在普通暴击概率基础上额外增加的暴击概率，最终概率会限制在 0~1。"
+  },
+  "yw_window": {
+    "description": "【限流】触发养胃的统计窗口（秒）",
+    "type": "int",
+    "default": 60,
+    "hint": "统计多少秒内的CCB调用次数。"
+  },
+  "yw_threshold": {
+    "description": "【限流】窗口内最大CCB次数",
+    "type": "int",
+    "default": 5,
+    "hint": "同一用户在统计窗口内超过该次数后会被暂时禁用。"
+  },
+  "yw_ban_duration": {
+    "description": "【限流】养胃时长（秒）",
+    "type": "int",
+    "default": 900,
+    "hint": "触发限流或随机养胃后禁用多长时间。"
+  },
+  "yw_probability": {
+    "description": "【限流】随机养胃概率",
+    "type": "float",
+    "default": 0.1,
+    "hint": "每次CCB完成后，随机进入养胃状态的概率，范围建议 0~1。"
+  },
+  "is_log": {
+    "description": "【日志】完整记录每次CCB",
+    "type": "bool",
+    "default": false,
+    "hint": "为 true 时，会额外保存每次CCB的群聊、执行者、目标和注入量。"
   }
 }
