@@ -35,6 +35,12 @@
     "default": [],
     "hint": "仅在列表中的群聊可使用本插件功能；留空则不限制。"
   },
+  "group_daily_ccb_limit": {
+    "description": "群聊每日CCB次数上限",
+    "type": "int",
+    "default": 0,
+    "hint": "限制每个群每天最多执行多少次 /ccb；0 或负数表示不限制。"
+  },
   "self_ccb": {
     "description": "是否允许0721",
     "type": "bool",
