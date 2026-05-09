@@ -29,7 +29,7 @@ def makeit(group_data, target_user_id):
     return 1 if any(item.get(a1) == target_user_id for item in group_data) else 2
 
 
-@register("ccb", "Koikokokokoro", "ccb PLUS", "1.1.8")
+@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS：群聊白名单、管理清理、防CCB、管理员超级暴击", "1.1.9")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -129,14 +129,38 @@ class ccb(Star):
         except Exception as e:
             logger.warning(f"save white_list error: {e}")
 
+    def _get_target_user_id(self, event: AstrMessageEvent) -> str:
+        """解析命令目标：优先取第一个非机器人 @，未 @ 时默认发送者。"""
+        self_id = str(event.get_self_id())
+        return next(
+            (str(seg.qq) for seg in event.get_messages()
+             if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
+            str(event.get_sender_id())
+        )
+
+    async def _get_nickname(self, event: AstrMessageEvent, user_id: str) -> str:
+        """获取用户昵称；获取失败时回退为 QQ 号。"""
+        nickname = str(user_id)
+        if event.get_platform_name() == "aiocqhttp":
+            try:
+                from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+                assert isinstance(event, AiocqhttpMessageEvent)
+                info = await event.bot.api.call_action('get_stranger_info', user_id=user_id)
+                nickname = info.get("nick", nickname)
+            except Exception:
+                pass
+        return nickname
+
     # ── 指令组 ────────────────────────────────────────
     @filter.command_group("ccb")
     def ccb_group(self):
+        """CCB 指令组。包含 CCB、排行、查询、管理清理、防CCB与管理员超级暴击等功能。"""
         pass
 
     # ── /ccb ─────────────────────────────────────────
     @ccb_group.command("ccb")
     async def cmd_ccb(self, event: AstrMessageEvent):
+        """对目标进行 CCB。用法：/ccb ccb [@目标]；未 @ 时默认自己。"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -164,11 +188,7 @@ class ccb(Star):
             yield event.plain_result("冲得出来吗你就冲，再冲就给你折了")
             return
 
-        target_user_id = next(
-            (str(seg.qq) for seg in event.get_messages()
-             if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-            send_id
-        )
+        target_user_id = self._get_target_user_id(event)
 
         if target_user_id in self.white_list:
             stranger_info = await event.bot.api.call_action(
@@ -334,6 +354,7 @@ class ccb(Star):
     # ── /ccbtop ──────────────────────────────────────
     @ccb_group.command("ccbtop")
     async def cmd_ccbtop(self, event: AstrMessageEvent):
+        """查看当前群被 CCB 次数排行榜 TOP5。用法：/ccb ccbtop"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -361,6 +382,7 @@ class ccb(Star):
     # ── /ccbvol ─────────────────────────────────────
     @ccb_group.command("ccbvol")
     async def cmd_ccbvol(self, event: AstrMessageEvent):
+        """查看当前群累计注入量排行榜 TOP5。用法：/ccb ccbvol"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -388,16 +410,13 @@ class ccb(Star):
     # ── /ccbinfo ────────────────────────────────────
     @ccb_group.command("ccbinfo")
     async def cmd_ccbinfo(self, event: AstrMessageEvent):
+        """查询某人的 CCB 统计信息。用法：/ccb ccbinfo [@目标]；未 @ 时查询自己。"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
 
         self_id = str(event.get_self_id())
-        target_user_id = next(
-            (str(seg.qq) for seg in event.get_messages()
-             if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-            str(event.get_sender_id())
-        )
+        target_user_id = self._get_target_user_id(event)
 
         all_data = self.read_data()
         group_data = all_data.get(group_id, [])
@@ -465,6 +484,7 @@ class ccb(Star):
     # ── /ccbmax ─────────────────────────────────────
     @ccb_group.command("ccbmax")
     async def cmd_ccbmax(self, event: AstrMessageEvent):
+        """查看当前群单次最大注入排行榜 TOP5。用法：/ccb ccbmax"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -535,6 +555,7 @@ class ccb(Star):
     # ── /xnn ────────────────────────────────────────
     @ccb_group.command("xnn")
     async def cmd_xnn(self, event: AstrMessageEvent):
+        """查看当前群小南梁排行榜 TOP5。用法：/ccb xnn"""
         w_num = 1.0
         w_vol = 0.1
         w_action = 0.5
@@ -585,6 +606,7 @@ class ccb(Star):
     # ── /ccbclear (管理员) ───────────────────────────
     @ccb_group.command("ccbclear")
     async def cmd_ccbclear(self, event: AstrMessageEvent):
+        """管理员指令：清除目标的被 CCB 与 CCB 他人记录。用法：/ccb ccbclear [@目标]；未 @ 时默认自己。"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
@@ -593,11 +615,7 @@ class ccb(Star):
         self_id = str(event.get_self_id())
         sender_id = str(event.get_sender_id())
 
-        target_user_id = next(
-            (str(seg.qq) for seg in event.get_messages()
-             if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-            sender_id
-        )
+        target_user_id = self._get_target_user_id(event)
 
         target_nick = target_user_id
         if event.get_platform_name() == "aiocqhttp":
@@ -648,6 +666,7 @@ class ccb(Star):
     # ── /ccbnodo (管理员) ────────────────────────────
     @ccb_group.command("ccbnodo")
     async def cmd_ccbnodo(self, event: AstrMessageEvent):
+        """管理员指令：切换目标防被 CCB 状态。用法：/ccb ccbnodo [@目标]；未 @ 时默认自己。"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
@@ -655,11 +674,7 @@ class ccb(Star):
         self_id = str(event.get_self_id())
         sender_id = str(event.get_sender_id())
 
-        target_user_id = next(
-            (str(seg.qq) for seg in event.get_messages()
-             if isinstance(seg, Comp.At) and str(seg.qq) != self_id),
-            sender_id
-        )
+        target_user_id = self._get_target_user_id(event)
 
         target_nick = target_user_id
         if event.get_platform_name() == "aiocqhttp":
@@ -685,6 +700,7 @@ class ccb(Star):
     # ── /ccbsuper (管理员) ───────────────────────────
     @ccb_group.command("ccbsuper")
     async def cmd_ccbsuper(self, event: AstrMessageEvent):
+        """管理员指令：切换自己的超级暴击状态。用法：/ccb ccbsuper；需在配置中启用 super_crit_enabled。"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
