@@ -26,13 +26,16 @@ a3 = "vol"      # 被注入量
 a4 = "ccb_by"   # 被谁朝了
 a5 = "max"      # 最大值
 
+
 def get_avatar(user_id: str) -> bytes:
     return f"https://q4.qlogo.cn/headimg_dl?dst_uin={user_id}&spec=640"
+
 
 def makeit(group_data, target_user_id):
     return 1 if any(item.get(a1) == target_user_id for item in group_data) else 2
 
-@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS", "1.1.4")
+
+@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS", "1.1.5")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -44,9 +47,21 @@ class ccb(Star):
         self.ban_list = {}
         self.yw_prob = config.get("yw_probability")               # 触发概率
         self.white_list  = config.get("white_list")
+        self.group_white_list = config.get("group_white_list", [])  # 白名单群聊，留空则不限制
         self.selfdo = self.config.get("self_ccb", False)         # 0721 默认为否
         self.crit_prob  =   self.config.get("crit_prob")
         self.is_log =   self.config.get("is_log")           # 完整日志，默认为false
+
+    def _check_group(self, group_id: str) -> bool:
+        """
+        检查当前群聊是否在白名单内。
+        返回 True 表示允许使用，False 表示不允许。
+        当 group_white_list 为空列表时，不限制任何群聊。
+        """
+        gl = [str(g) for g in self.group_white_list]
+        if not gl:
+            return True
+        return str(group_id) in gl
 
     def read_data(self):
         try:
@@ -108,6 +123,12 @@ class ccb(Star):
         import time, random
 
         group_id = str(event.get_group_id())
+
+        # 白名单群聊检查
+        if not self._check_group(group_id):
+            yield event.plain_result("本群未开启 CCB 功能喵~")
+            return
+
         send_id = str(event.get_sender_id())
         self_id = str(event.get_self_id())
         actor_id = send_id
@@ -322,6 +343,12 @@ class ccb(Star):
         按次数排行
         """
         group_id = str(event.get_group_id())
+
+        # 白名单群聊检查
+        if not self._check_group(group_id):
+            yield event.plain_result("当前群未开启此功能")
+            return
+
         group_data = self.read_data().get(group_id, [])
         if not group_data:
             yield event.plain_result("当前群暂无ccb记录。")
@@ -348,6 +375,12 @@ class ccb(Star):
         按注入量排行
         """
         group_id = str(event.get_group_id())
+
+        # 白名单群聊检查
+        if not self._check_group(group_id):
+            yield event.plain_result("当前群未开启此功能")
+            return
+
         group_data = self.read_data().get(group_id, [])
         if not group_data:
             yield event.plain_result("当前群暂无ccb记录。")
@@ -375,6 +408,12 @@ class ccb(Star):
         用法：ccbinfo [@目标]
         """
         group_id = str(event.get_group_id())
+
+        # 白名单群聊检查
+        if not self._check_group(group_id):
+            yield event.plain_result("当前群未开启此功能")
+            return
+
         # 解析 @ 目标，否则默认查询自己
         self_id = str(event.get_self_id())
         target_user_id = next(
@@ -427,7 +466,7 @@ class ccb(Star):
                 first_actor = actor_id
                 break
 
-        # 如果没标记 first，就选 count 最大的作为“首位”
+        # 如果没标记 first，就选 count 最大的作为"首位"
         if not first_actor and ccb_by:
             first_actor = max(ccb_by.items(), key=lambda x: x[1].get("count", 0))[0]
 
@@ -462,6 +501,12 @@ class ccb(Star):
         按max值排行并输出产生者
         """
         group_id = str(event.get_group_id())
+
+        # 白名单群聊检查
+        if not self._check_group(group_id):
+            yield event.plain_result("当前群未开启此功能")
+            return
+
         group_data = self.read_data().get(group_id, [])
         if not group_data:
             yield event.plain_result("当前群暂无ccb记录。")
@@ -595,6 +640,12 @@ class ccb(Star):
         w_action = 0.5
 
         group_id = str(event.get_group_id())
+
+        # 白名单群聊检查
+        if not self._check_group(group_id):
+            yield event.plain_result("当前群未开启此功能")
+            return
+
         all_data = self.read_data()
         group_data = all_data.get(group_id, [])
         if not group_data:
