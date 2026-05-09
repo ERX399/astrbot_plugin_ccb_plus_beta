@@ -13,6 +13,7 @@ import os
 
 DATA_FILE = "data/ccb.json"
 LOG_FILE = "data/ccb_log.json"
+DAILY_LIMIT_FILE = "data/ccb_daily_limit.json"
 
 a1 = "id"
 a2 = "num"
@@ -29,7 +30,56 @@ def makeit(group_data, target_user_id):
     return 1 if any(item.get(a1) == target_user_id for item in group_data) else 2
 
 
-@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS Beta：群聊白名单、默认白名单保护、管理清理、防CCB、管理员暴击增强", "1.2.6-beta")
+class DailyGroupLimiter:
+    """模块：按群聊统计每日 CCB 次数。"""
+
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+
+    def _today(self) -> str:
+        return _time_module.strftime("%Y-%m-%d", _time_module.localtime())
+
+    def _read(self) -> dict:
+        try:
+            if os.path.exists(self.file_path):
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return data if isinstance(data, dict) else {}
+        except Exception as e:
+            logger.warning(f"read daily limit data error: {e}")
+        return {}
+
+    def _write(self, data: dict):
+        try:
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning(f"write daily limit data error: {e}")
+
+    def get_count(self, group_id: str) -> int:
+        data = self._read()
+        today = self._today()
+        return int(data.get(today, {}).get(str(group_id), 0))
+
+    def can_use(self, group_id: str, limit: int) -> tuple[bool, int]:
+        if limit <= 0:
+            return True, 0
+        used = self.get_count(group_id)
+        return used < limit, max(0, limit - used)
+
+    def increase(self, group_id: str, limit: int) -> int:
+        if limit <= 0:
+            return 0
+        data = self._read()
+        today = self._today()
+        # 仅保留当天，避免文件长期膨胀
+        data = {today: data.get(today, {})}
+        data[today][str(group_id)] = int(data[today].get(str(group_id), 0)) + 1
+        self._write(data)
+        return data[today][str(group_id)]
+
+
+@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS Beta：群聊白名单、每日次数限制、默认白名单保护、管理清理、防CCB、管理员暴击增强", "1.2.7-beta")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -51,6 +101,10 @@ class ccb(Star):
         # 管理员额外暴击率
         self.admin_extra_crit_enabled = config.get("admin_extra_crit_enabled", False)
         self.admin_extra_crit_bonus = config.get("admin_extra_crit_bonus", 0.3)
+
+        # 群聊每日 CCB 次数限制模块
+        self.group_daily_ccb_limit = int(config.get("group_daily_ccb_limit", 0) or 0)
+        self.daily_limiter = DailyGroupLimiter(DAILY_LIMIT_FILE)
 
     def _check_group(self, group_id: str) -> bool:
         gl = [str(g) for g in self.group_white_list]
@@ -184,12 +238,15 @@ class ccb(Star):
     @filter.command("ccb")
     async def cmd_ccb(self, event: AstrMessageEvent):
         """对目标进行 CCB。用法：/ccb [@目标]；未 @ 时默认自己。"""
-
-        """对目标进行 CCB。用法：/ccb ccb [@目标]；未 @ 时默认自己。"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
         self._sync_event_bot_white_list(event)
+
+        can_use, remain = self.daily_limiter.can_use(group_id, self.group_daily_ccb_limit)
+        if not can_use:
+            yield event.plain_result(f"本群今日 CCB 次数已达上限（{self.group_daily_ccb_limit}次），明天再来吧。")
+            return
 
         send_id = str(event.get_sender_id())
         self_id = str(event.get_self_id())
@@ -326,6 +383,7 @@ class ccb(Star):
 
                         all_data[group_id] = group_data
                         self.write_data(all_data)
+                        self.daily_limiter.increase(group_id, self.group_daily_ccb_limit)
 
                         if _random_module.random() < self.yw_prob:
                             self.ban_list[actor_id] = now + self.ban_duration
@@ -364,6 +422,7 @@ class ccb(Star):
                 group_data.append(new_record)
                 all_data[group_id] = group_data
                 self.write_data(all_data)
+                self.daily_limiter.increase(group_id, self.group_daily_ccb_limit)
 
                 if is_log:
                     try:
