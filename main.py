@@ -29,7 +29,7 @@ def makeit(group_data, target_user_id):
     return 1 if any(item.get(a1) == target_user_id for item in group_data) else 2
 
 
-@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS：群聊白名单、管理清理、防CCB、管理员配置暴击增强", "1.2.2")
+@register("ccb", "Koikokokoro", "和群友赛博sex的插件PLUS：群聊白名单、管理员/bot默认保护、管理清理、防CCB、管理员配置暴击增强", "1.2.3")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -40,9 +40,12 @@ class ccb(Star):
         self.action_times = {}
         self.ban_list = {}
         self.yw_prob = config.get("yw_probability")
-        self.white_list = config.get("white_list")
+        self.white_list = [str(x) for x in (config.get("white_list") or [])]
+        self.protect_admins = config.get("protect_admins", True)
+        self.protect_bot = config.get("protect_bot", True)
         self.group_white_list = config.get("group_white_list", [])
         self.selfdo = self.config.get("self_ccb", False)
+        self._sync_default_protected_users()
         self.crit_prob = self.config.get("crit_prob")
         self.is_log = self.config.get("is_log")
         self.super_crit_enabled = config.get("super_crit_enabled", False)
@@ -131,6 +134,47 @@ class ccb(Star):
         except Exception as e:
             logger.warning(f"save white_list error: {e}")
 
+    def _sync_default_protected_users(self):
+        """把默认保护对象同步进 white_list，便于在配置面板中显示。"""
+        changed = False
+        ids = []
+
+        if self.protect_admins:
+            try:
+                ids.extend([str(a) for a in getattr(self.context, "admin_list", [])])
+            except Exception:
+                pass
+
+        if self.protect_bot:
+            # 机器人自身ID在事件中最可靠；这里先兼容常见上下文属性，后续事件中也会再次同步。
+            for attr in ("self_id", "bot_id"):
+                try:
+                    val = getattr(self.context, attr, None)
+                    if val:
+                        ids.append(str(val))
+                except Exception:
+                    pass
+
+        for uid in ids:
+            if uid and uid not in self.white_list:
+                self.white_list.append(uid)
+                changed = True
+
+        if changed:
+            self._save_white_list()
+
+    def _sync_event_bot_protection(self, event: AstrMessageEvent):
+        """事件到达后同步机器人自身ID进 white_list。"""
+        if not self.protect_bot:
+            return
+        try:
+            bot_id = str(event.get_self_id())
+            if bot_id and bot_id not in self.white_list:
+                self.white_list.append(bot_id)
+                self._save_white_list()
+        except Exception:
+            pass
+
     def _get_target_user_id(self, event: AstrMessageEvent) -> str:
         """解析命令目标：优先取第一个非机器人 @，未 @ 时默认发送者。"""
         self_id = str(event.get_self_id())
@@ -166,6 +210,7 @@ class ccb(Star):
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
+        self._sync_event_bot_protection(event)
 
         send_id = str(event.get_sender_id())
         self_id = str(event.get_self_id())
@@ -695,7 +740,19 @@ class ccb(Star):
             except Exception:
                 pass
 
+        default_protected = False
+        try:
+            default_protected = (
+                (self.protect_bot and target_user_id == str(event.get_self_id()))
+                or (self.protect_admins and target_user_id in [str(a) for a in getattr(self.context, "admin_list", [])])
+            )
+        except Exception:
+            default_protected = False
+
         if target_user_id in self.white_list:
+            if default_protected:
+                yield event.plain_result(f"{target_nick} 是默认保护对象，请先在配置中关闭管理员/bot默认保护")
+                return
             self.white_list.remove(target_user_id)
             self._save_white_list()
             yield event.plain_result(f"已解除 {target_nick} 的防CCB保护，现在可以对其CCB了")
