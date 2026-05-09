@@ -79,7 +79,7 @@ class DailyGroupLimiter:
         return data[today][str(group_id)]
 
 
-@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS Beta：群聊白名单、群单独限制、默认白名单保护、管理清理、防CCB、管理员暴击增强", "1.2.9-beta")
+@register("ccb", "Koikokokokoro", "和群友赛博sex的插件PLUS Beta：群聊白名单、群单独限制、默认白名单保护、管理清理、防CCB、管理员折叠配置", "1.3.1-beta")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -96,11 +96,25 @@ class ccb(Star):
         self._sync_default_white_list()
         self.crit_prob = self.config.get("crit_prob")
         self.is_log = self.config.get("is_log")
-        self.super_crit_enabled = config.get("super_crit_enabled", False)
-        self.super_crit_multiplier = config.get("super_crit_multiplier", 5.0)
-        # 管理员额外暴击率
-        self.admin_extra_crit_enabled = config.get("admin_extra_crit_enabled", False)
-        self.admin_extra_crit_bonus = config.get("admin_extra_crit_bonus", 0.3)
+        # 管理员折叠配置（兼容旧版顶层配置）
+        admin_settings = config.get("admin_settings", {}) or {}
+        self.super_crit_enabled = admin_settings.get(
+            "super_crit_enabled",
+            config.get("super_crit_enabled", False)
+        )
+        self.super_crit_multiplier = admin_settings.get(
+            "super_crit_multiplier",
+            config.get("super_crit_multiplier", 5.0)
+        )
+        self.admin_extra_crit_enabled = admin_settings.get(
+            "extra_crit_enabled",
+            config.get("admin_extra_crit_enabled", False)
+        )
+        self.admin_extra_crit_bonus = admin_settings.get(
+            "extra_crit_bonus",
+            config.get("admin_extra_crit_bonus", 0.3)
+        )
+        self.admin_exempt_yw = admin_settings.get("exempt_yw", False)
 
         # 群聊单独限制配置模块
         self.group_configs = config.get("group_configs", []) or []
@@ -278,24 +292,26 @@ class ccb(Star):
         self_id = str(event.get_self_id())
         actor_id = send_id
         now = _time_module.time()
+        admin_exempt_yw = bool(self.admin_exempt_yw and await self._is_admin(event))
 
         ban_end = self.ban_list.get(actor_id, 0)
-        if now < ban_end:
+        if now < ban_end and not admin_exempt_yw:
             remain = int(ban_end - now)
             m, s = divmod(remain, 60)
             yield event.plain_result(f"嘻嘻，你已经一滴不剩了，养胃还剩 {m}分{s}秒")
             return
 
-        times = self.action_times.setdefault(actor_id, deque())
-        while times and now - times[0] > self.window:
-            times.popleft()
-        times.append(now)
+        if not admin_exempt_yw:
+            times = self.action_times.setdefault(actor_id, deque())
+            while times and now - times[0] > self.window:
+                times.popleft()
+            times.append(now)
 
-        if len(times) > self.threshold:
-            self.ban_list[actor_id] = now + self.ban_duration
-            times.clear()
-            yield event.plain_result("冲得出来吗你就冲，再冲就给你折了")
-            return
+            if len(times) > self.threshold:
+                self.ban_list[actor_id] = now + self.ban_duration
+                times.clear()
+                yield event.plain_result("冲得出来吗你就冲，再冲就给你折了")
+                return
 
         target_user_id = self._get_target_user_id(event)
 
@@ -411,7 +427,7 @@ class ccb(Star):
                         self.write_data(all_data)
                         self.daily_limiter.increase(group_id, daily_limit)
 
-                        if _random_module.random() < self.yw_prob:
+                        if (not admin_exempt_yw) and _random_module.random() < self.yw_prob:
                             self.ban_list[actor_id] = now + self.ban_duration
                             yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲）")
                         return
@@ -456,7 +472,7 @@ class ccb(Star):
                     except Exception as e:
                         logger.warning(f"log error: {e}")
 
-                if _random_module.random() < self.yw_prob:
+                if (not admin_exempt_yw) and _random_module.random() < self.yw_prob:
                     self.ban_list[actor_id] = now + self.ban_duration
                     yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲）")
                 return
