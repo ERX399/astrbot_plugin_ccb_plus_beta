@@ -4,6 +4,7 @@
     "type": "bool",
     "default": false,
     "hint": "是否独立保留每一条ccb记录，包括双方与注入量。"
+
   },
   "yw_window": {
     "description": "触发赛博阳痿的窗口时间（秒）",
@@ -34,6 +35,7 @@
     "type": "list",
     "default": [],
     "hint": "目标在此列表中时不能被 CCB；插件会默认把 AstrBot 配置项 admin_qq 中的管理员和机器人自身 ID 加入此列表。"
+
   },
   "group_white_list": {
     "description": "白名单群聊列表",
@@ -109,6 +111,7 @@
             "description": "合并转发节点名称",
             "type": "string",
             "default": "CCB PLUS Beta",
+
             "hint": "合并转发消息中每个节点显示的外显名称"
           },
           "top_limit": {
@@ -116,6 +119,7 @@
             "type": "int",
             "default": 10,
             "hint": "所有 TOP 榜默认显示条数，支持 1~100；命令也可追加数量，如 /ccbtop 20。超过 10 条会强制使用合并转发"
+
           }
 
         }

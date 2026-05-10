@@ -1,5 +1,6 @@
 name: astrbot_plugin_ccb_plus_beta # 插件唯一识别名
-desc: CCB PLUS Beta，指令组增强版；支持群聊限制、管理员增强、可配置 TOP 榜、合并转发与全群日志汇总。 # 插件简短描述
+desc: CCB PLUS Beta，指令组增强版；支持基础/当前群排行/管理员/全群日志汇总指令，内置群聊限制、管理员增强、可配置 TOP 榜与合并转发。 # 插件简短描述
 version: v1.3.5-beta # 插件版本号
+
 author: ERX399 # 作者
 repo: https://github.com/ERX399/astrbot_plugin_ccb_plus_beta # 插件仓库地址

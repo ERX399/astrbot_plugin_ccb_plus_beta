@@ -27,7 +27,7 @@ def get_avatar(user_id: str) -> bytes:
 
 
 def makeit(group_data, target_user_id):
-    """判断目标记录是否已存在；兼容历史脏数据。"""
+    """判断目标记录是否已存在；兼容历史脏数据"""
     if not isinstance(group_data, list):
         return 2
     return 1 if any(isinstance(item, dict) and item.get(a1) == target_user_id for item in group_data) else 2
@@ -56,7 +56,7 @@ def _safe_float(value, default: float = 0.0) -> float:
 
 
 def _normalize_ccb_by(value) -> dict:
-    """把 ccb_by 清洗为 {user_id: {count, first, max}} 格式。"""
+    """把 ccb_by 清洗为 {user_id: {count, first, max}} 格式"""
     if not isinstance(value, dict):
         return {}
 
@@ -78,7 +78,7 @@ def _normalize_ccb_by(value) -> dict:
 
 
 def _normalize_group_data(group_data) -> list[dict]:
-    """清洗群数据，过滤 int/str 等坏记录，避免 .get 崩溃。"""
+    """清洗群数据，过滤 int/str 等坏记录，避免 .get 崩溃"""
     if not isinstance(group_data, list):
         return []
 
@@ -99,7 +99,7 @@ def _normalize_group_data(group_data) -> list[dict]:
 
 
 class DailyGroupLimiter:
-    """模块：按群聊内每人统计每日 CCB 次数。"""
+    """模块：按群聊内每人统计每日 CCB 次数"""
 
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -228,7 +228,7 @@ class ccb(Star):
         return str(group_id) in gl
 
     def _iter_group_configs(self):
-        """兼容 AstrBot template_list 可能返回的 list/dict 结构。"""
+        """兼容 AstrBot template_list 可能返回的 list/dict 结构"""
         cfg = self.group_configs or []
         if isinstance(cfg, list):
             for item in cfg:
@@ -240,7 +240,7 @@ class ccb(Star):
                     yield item
 
     def _get_group_daily_limit(self, group_id: str) -> int:
-        """获取当前群每日 CCB 上限；无匹配配置或未启用则不限制。"""
+        """获取当前群每日 CCB 上限；无匹配配置或未启用则不限制"""
         gid = str(group_id)
         for item in self._iter_group_configs():
             if not item.get("enable", True):
@@ -253,7 +253,7 @@ class ccb(Star):
         return 0
 
     def _normalize_admin_ids(self, value) -> list[str]:
-        """兼容 admin_qq/admin_list 的不同格式，统一转换为 QQ 号字符串列表。"""
+        """兼容 admin_qq/admin_list 的不同格式，统一转换为 QQ 号字符串列表"""
         if not value:
             return []
         if isinstance(value, (str, int)):
@@ -273,7 +273,7 @@ class ccb(Star):
         return ids
 
     def _get_admin_ids(self) -> list[str]:
-        """获取 AstrBot 管理员 QQ；优先使用新版配置项 admin_qq，兼容旧 admin_list。"""
+        """获取 AstrBot 管理员 QQ；优先使用新版配置项 admin_qq，兼容旧 admin_list"""
         admin_ids = []
         for attr in ("admin_qq", "admin_list"):
             try:
@@ -342,7 +342,7 @@ class ccb(Star):
         return {}
 
     def _ensure_data_dir(self):
-        """确保 data 目录存在，避免首次写入日志/数据失败。"""
+        """确保 data 目录存在，避免首次写入日志/数据失败"""
         data_dir = os.path.dirname(DATA_FILE) or "."
         os.makedirs(data_dir, exist_ok=True)
 
@@ -378,7 +378,7 @@ class ccb(Star):
             logger.error(f"append_log error: {e}")
 
     def _build_group_log_records(self, group_id: str) -> tuple[list[dict], dict[str, int]]:
-        """把完整日志聚合成与 ccb.json 类似的群统计结构。"""
+        """把完整日志聚合成与 ccb.json 类似的群统计结构"""
         gid = str(group_id)
         logs = self.read_log()
         target_map: dict[str, dict] = {}
@@ -446,7 +446,7 @@ class ccb(Star):
         return records, actor_actions
 
     def _build_all_log_records(self) -> tuple[list[dict], dict[str, int], int]:
-        """把完整日志聚合成全群总统计结构；返回 records、执行者次数、涉及群数量。"""
+        """把完整日志聚合成全群总统计结构；返回 records、执行者次数、涉及群数量"""
         logs = self.read_log()
         target_map: dict[str, dict] = {}
         actor_actions: dict[str, int] = {}
@@ -513,7 +513,7 @@ class ccb(Star):
 
     def _get_group_records(self, group_id: str) -> tuple[list[dict], dict[str, int]]:
 
-        """优先使用日志聚合；没有日志或日志不可用时回退主数据。"""
+        """优先使用日志聚合；没有日志或日志不可用时回退主数据"""
         if self.is_log:
             records, actor_actions = self._build_group_log_records(group_id)
             if records:
@@ -530,7 +530,7 @@ class ccb(Star):
         return _normalize_group_data(group_data), {}
 
     def _build_log_extra(self, group_data: list, target_user_id: str, executor_id: str, crit: bool = False) -> dict:
-        """为完整日志补充当前统计快照，保留原日志字段并追加次数/累计等信息。"""
+        """为完整日志补充当前统计快照，保留原日志字段并追加次数/累计等信息"""
         group_data = _normalize_group_data(group_data)
         target_record = next((r for r in group_data if isinstance(r, dict) and r.get(a1) == target_user_id), {}) or {}
         if not isinstance(target_record, dict):
@@ -572,7 +572,7 @@ class ccb(Star):
             logger.warning(f"save white_list error: {e}")
 
     def _sync_default_white_list(self):
-        """默认把 AstrBot 管理员加入 white_list，并写回配置以便面板显示。"""
+        """默认把 AstrBot 管理员加入 white_list，并写回配置以便面板显示"""
         changed = False
         for uid in self._get_admin_ids():
             if uid and uid not in self.white_list:
@@ -583,7 +583,7 @@ class ccb(Star):
             self._save_white_list()
 
     def _sync_event_bot_white_list(self, event: AstrMessageEvent):
-        """事件到达后把机器人自身ID加入 white_list，并写回配置以便面板显示。"""
+        """事件到达后把机器人自身ID加入 white_list，并写回配置以便面板显示"""
         try:
             bot_id = str(event.get_self_id())
             if bot_id and bot_id not in self.white_list:
@@ -593,7 +593,7 @@ class ccb(Star):
             pass
 
     def _get_target_user_id(self, event: AstrMessageEvent) -> str:
-        """解析命令目标：优先取第一个非机器人 @，未 @ 时默认发送者。"""
+        """解析命令目标：优先取第一个非机器人 @，未 @ 时默认发送者"""
         self_id = str(event.get_self_id())
         return next(
             (str(seg.qq) for seg in event.get_messages()
@@ -601,7 +601,7 @@ class ccb(Star):
             str(event.get_sender_id())
         )
     async def _get_nickname(self, event: AstrMessageEvent, user_id: str) -> str:
-        """获取用户昵称；获取失败时回退为 QQ 号。"""
+        """获取用户昵称；获取失败时回退为 QQ 号"""
         nickname = str(user_id)
         if event.get_platform_name() == "aiocqhttp":
             try:
@@ -614,7 +614,7 @@ class ccb(Star):
         return nickname
 
     def _get_top_count(self, event: AstrMessageEvent) -> int:
-        """解析排行榜条数；支持 /ccbtop 20，最终限制在 1~100。未提供时使用配置 top_limit。"""
+        """解析排行榜条数；支持 /ccbtop 20，最终限制在 1~100未提供时使用配置 top_limit"""
         count = self.top_limit
         try:
             raw = event.message_str.strip().split()
@@ -624,7 +624,7 @@ class ccb(Star):
             pass
         return min(100, max(1, count))
     async def _send_rank_result(self, event: AstrMessageEvent, title: str, lines: list[str], count: int):
-        """发送排行榜；超过 10 条强制走合并转发，失败则回退为 TOP10 普通消息。"""
+        """发送排行榜；超过 10 条强制走合并转发，失败则回退为 TOP10 普通消息"""
         msg = (title + "\n" + "\n".join(lines)).rstrip()
         force_forward = count > 10
 
@@ -652,13 +652,105 @@ class ccb(Star):
             fallback_title = title.replace(f"TOP{len(lines)}", "TOP10")
             fallback_msg = (fallback_title + "\n" + "\n".join(lines[:10])).rstrip()
             return event.plain_result(fallback_msg)
-
         return event.plain_result(msg)
+
+    def _record_max_value(self, record: dict) -> float:
+        """获取单条统计记录的单次最大值；兼容旧数据缺失 max 的情况"""
+        if not isinstance(record, dict):
+            return 0.0
+        raw_max = record.get(a5, None)
+        if raw_max is not None:
+            return _safe_float(raw_max, 0.0)
+        total_num = _safe_int(record.get(a2, 0), 0)
+        if total_num <= 0:
+            return 0.0
+        return round(_safe_float(record.get(a3, 0), 0.0) / total_num, 2)
+
+    def _record_max_actor(self, record: dict) -> str | None:
+        """获取单次最大记录生产者；没有 max 标记时回退为执行次数最多者"""
+        ccb_by = _normalize_ccb_by(record.get(a4, {}) if isinstance(record, dict) else {})
+        for actor_id, info in ccb_by.items():
+            if info.get("max"):
+                return actor_id
+        if ccb_by:
+            try:
+                return max(ccb_by.items(), key=lambda x: _safe_int(x[1].get("count", 0), 0))[0]
+            except Exception:
+                return None
+        return None
+
+    def _ensure_actor_actions(self, group_data: list[dict], actor_actions: dict | None = None) -> dict[str, int]:
+        """确保小南梁榜所需的执行者次数存在"""
+        if actor_actions:
+            return {str(k): _safe_int(v, 0) for k, v in actor_actions.items()}
+        result: dict[str, int] = {}
+        for record in group_data:
+            ccb_by = _normalize_ccb_by(record.get(a4, {}) if isinstance(record, dict) else {})
+            for actor_id, info in ccb_by.items():
+                result[actor_id] = result.get(actor_id, 0) + _safe_int(info.get("count", 0), 0)
+        return result
+
+    async def _send_top_rank(self, event: AstrMessageEvent, records: list[dict], title_tpl: str, value_label: str = "次数"):
+        count = self._get_top_count(event)
+        top_items = sorted(records, key=lambda x: _safe_int(x.get(a2, 0), 0), reverse=True)[:count]
+        lines = []
+        for i, record in enumerate(top_items, 1):
+            uid = str(record.get(a1, "未知"))
+            nick = await self._get_nickname(event, uid)
+            lines.append(f"{i}. {nick}({uid}) - {value_label}：{_safe_int(record.get(a2, 0), 0)}")
+        return await self._send_rank_result(event, title_tpl.format(n=len(top_items)), lines, len(top_items))
+
+    async def _send_vol_rank(self, event: AstrMessageEvent, records: list[dict], title_tpl: str, value_label: str = "累计注入"):
+        count = self._get_top_count(event)
+        top_items = sorted(records, key=lambda x: _safe_float(x.get(a3, 0), 0.0), reverse=True)[:count]
+        lines = []
+        for i, record in enumerate(top_items, 1):
+            uid = str(record.get(a1, "未知"))
+            nick = await self._get_nickname(event, uid)
+            lines.append(f"{i}. {nick}({uid}) - {value_label}：{_safe_float(record.get(a3, 0), 0.0):.2f}ml")
+        return await self._send_rank_result(event, title_tpl.format(n=len(top_items)), lines, len(top_items))
+
+    async def _send_max_rank(self, event: AstrMessageEvent, records: list[dict], title_tpl: str):
+        count = self._get_top_count(event)
+        top_items = sorted(records, key=self._record_max_value, reverse=True)[:count]
+        lines = []
+        for i, record in enumerate(top_items, 1):
+            uid = str(record.get(a1, "未知"))
+            max_val = self._record_max_value(record)
+            producer_id = self._record_max_actor(record)
+            nick = await self._get_nickname(event, uid)
+            producer_nick = await self._get_nickname(event, producer_id) if producer_id else "未知"
+            if producer_id:
+                lines.append(f"{i}. {nick}({uid}) - 单次最大：{max_val:.2f}ml（{producer_nick}({producer_id})）")
+            else:
+                lines.append(f"{i}. {nick}({uid}) - 单次最大：{max_val:.2f}ml（{producer_nick}）")
+        return await self._send_rank_result(event, title_tpl.format(n=len(top_items)), lines, len(top_items))
+
+    async def _send_xnn_rank(self, event: AstrMessageEvent, records: list[dict], actor_actions: dict | None, title_tpl: str):
+        actor_actions = self._ensure_actor_actions(records, actor_actions)
+        ranking = []
+        for record in records:
+            uid = str(record.get(a1, ""))
+            if not uid:
+                continue
+            num = _safe_int(record.get(a2, 0), 0)
+            vol = _safe_float(record.get(a3, 0), 0.0)
+            actions = _safe_int(actor_actions.get(uid, 0), 0)
+            ranking.append((uid, num * 1.0 + vol * 0.1 - actions * 0.5))
+
+        count = self._get_top_count(event)
+        top_items = sorted(ranking, key=lambda x: x[1], reverse=True)[:count]
+        lines = []
+        for i, (uid, xnn_val) in enumerate(top_items, 1):
+            nick = await self._get_nickname(event, uid)
+            lines.append(f"{i}. {nick}({uid}) - XNN值：{xnn_val:.2f}")
+        return await self._send_rank_result(event, title_tpl.format(n=len(top_items)), lines, len(top_items))
 
 
     async def _send_ccb_result(self, event: AstrMessageEvent, texts: list[str], image_url: str | None = None):
 
-        """发送CCB结果；支持普通消息、可选头像、可选合并转发。"""
+
+        """发送CCB结果；支持普通消息、可选头像、可选合并转发"""
         chain = []
         for index, text in enumerate(texts):
             if text:
@@ -699,7 +791,7 @@ class ccb(Star):
     # ── /ccb ─────────────────────────────────────────
     @filter.command("ccb")
     async def cmd_ccb(self, event: AstrMessageEvent):
-        """对目标进行 CCB。用法：/ccb [@目标]；未 @ 时默认自己。"""
+        """对目标进行 CCB用法：/ccb [@目标]；未 @ 时默认自己"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -714,7 +806,7 @@ class ccb(Star):
         daily_limit = self._get_group_daily_limit(group_id)
         can_use, remain = (True, 0) if admin_exempt_yw else self.daily_limiter.can_use(group_id, send_id, daily_limit)
         if not can_use:
-            yield event.plain_result(f"你今天在本群的 CCB 次数已达上限（{daily_limit}次），明天再来吧。")
+            yield event.plain_result(f"你今天在本群的 CCB 次数已达上限（{daily_limit}次），明天再来吧")
             return
 
         ban_end = self.ban_list.get(actor_id, 0)
@@ -743,11 +835,11 @@ class ccb(Star):
                 'get_stranger_info', user_id=target_user_id
             )
             nickname = stranger_info.get("nick", target_user_id)
-            yield event.plain_result(f"{nickname} 的后门受保护，不能ccb（悲")
+            yield event.plain_result(f"{nickname} 的后门受保护，不能ccb😡")
             return
 
         if target_user_id == actor_id and not self.selfdo:
-            yield event.plain_result("兄啊金箔怎么还能捅到自己的啊（恼）")
+            yield event.plain_result("兄啊金箔怎么还能捅到自己的啊（恼")
             return
 
         duration = round(_random_module.uniform(1, 60), 2)
@@ -904,7 +996,7 @@ class ccb(Star):
 
                         if (not admin_exempt_yw) and _random_module.random() < self.yw_prob:
                             self.ban_list[actor_id] = now + self.ban_duration
-                            yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲）")
+                            yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲")
                         return
             except Exception as e:
                 logger.error(f"error: {e}")
@@ -962,7 +1054,7 @@ class ccb(Star):
 
                 if (not admin_exempt_yw) and _random_module.random() < self.yw_prob:
                     self.ban_list[actor_id] = now + self.ban_duration
-                    yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲）")
+                    yield event.plain_result("💥你的牛牛炸膛了！满身疮痍，再起不能（悲")
                 return
             except Exception as e:
                 logger.error(f"error: {e}")
@@ -975,7 +1067,7 @@ class ccb(Star):
     # ── /ccbtop ──────────────────────────────────────
     @filter.command("ccbtop")
     async def cmd_ccbtop(self, event: AstrMessageEvent):
-        """查看当前群被 CCB 次数排行榜。用法：/ccbtop [数量]，数量上限100。"""
+        """查看当前群被 CCB 次数排行榜用法：/ccbtop [数量]，数量上限100"""
 
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
@@ -985,14 +1077,7 @@ class ccb(Star):
         if not group_data:
             yield event.plain_result("当前群暂无ccb记录")
             return
-        count = self._get_top_count(event)
-        top_items = sorted(group_data, key=lambda x: _safe_int(x.get(a2, 0), 0), reverse=True)[:count]
-        lines = []
-        for i, r in enumerate(top_items, 1):
-            uid = str(r.get(a1, "未知"))
-            nick = await self._get_nickname(event, uid)
-            lines.append(f"{i}. {nick}({uid}) - 次数：{_safe_int(r.get(a2, 0), 0)}")
-        result = await self._send_rank_result(event, f"被ccb排行榜 TOP{len(top_items)}：", lines, len(top_items))
+        result = await self._send_top_rank(event, group_data, "被ccb排行榜 TOP{n}：", "次数")
         if result:
             yield result
 
@@ -1000,7 +1085,7 @@ class ccb(Star):
     # ── /ccbvol ─────────────────────────────────────
     @filter.command("ccbvol")
     async def cmd_ccbvol(self, event: AstrMessageEvent):
-        """查看当前群累计注入量排行榜。用法：/ccbvol [数量]，数量上限100。"""
+        """查看当前群累计注入量排行榜用法：/ccbvol [数量]，数量上限100"""
 
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
@@ -1010,14 +1095,7 @@ class ccb(Star):
         if not group_data:
             yield event.plain_result("当前群暂无ccb记录")
             return
-        count = self._get_top_count(event)
-        top_items = sorted(group_data, key=lambda x: _safe_float(x.get(a3, 0), 0.0), reverse=True)[:count]
-        lines = []
-        for i, r in enumerate(top_items, 1):
-            uid = str(r.get(a1, "未知"))
-            nick = await self._get_nickname(event, uid)
-            lines.append(f"{i}. {nick}({uid}) - 累计注入：{_safe_float(r.get(a3, 0), 0.0):.2f}ml")
-        result = await self._send_rank_result(event, f"被注入量排行榜 TOP{len(top_items)}：", lines, len(top_items))
+        result = await self._send_vol_rank(event, group_data, "被注入量排行榜 TOP{n}：", "累计注入")
         if result:
             yield result
 
@@ -1025,7 +1103,7 @@ class ccb(Star):
     # ── /ccbinfo ────────────────────────────────────
     @filter.command("ccbinfo")
     async def cmd_ccbinfo(self, event: AstrMessageEvent):
-        """查询某人的 CCB 统计信息。用法：/ccbinfo [@目标]；未 @ 时查询自己。"""
+        """查询某人的 CCB 统计信息用法：/ccbinfo [@目标]；未 @ 时查询自己"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -1116,7 +1194,7 @@ class ccb(Star):
     # ── /ccbmax ─────────────────────────────────────
     @filter.command("ccbmax")
     async def cmd_ccbmax(self, event: AstrMessageEvent):
-        """查看当前群单次最大注入排行榜。用法：/ccbmax [数量]，数量上限100。"""
+        """查看当前群单次最大注入排行榜用法：/ccbmax [数量]，数量上限100"""
 
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
@@ -1126,76 +1204,16 @@ class ccb(Star):
         if not group_data:
             yield event.plain_result("当前群暂无ccb记录")
             return
-
-        entries = []
-        for r in group_data:
-            raw_max = r.get(a5, None)
-            max_val = 0.0
-            try:
-                if raw_max is not None:
-                    if isinstance(raw_max, (int, float)):
-                        max_val = float(raw_max)
-                    else:
-                        max_val = 0.0
-                else:
-                    current_vol = r.get(a3, 0)
-                    current_num = r.get(a2, 0)
-                    
-                    if not isinstance(current_vol, (int, float)):
-                        current_vol = 0
-                    if not isinstance(current_num, (int, float)):
-                        current_num = 0
-                        
-                    total_vol = float(current_vol)
-                    total_num = int(current_num)
-                    
-                    if total_num > 0:
-                        max_val = round(total_vol / total_num, 2)
-                    else:
-                        max_val = 0.0
-            except Exception:
-                max_val = 0.0
-            entries.append((r, float(max_val)))
-        entries.sort(key=lambda x: x[1], reverse=True)
-        count = self._get_top_count(event)
-        top_items = entries[:count]
-
-        lines = []
-        for i, (r, max_val) in enumerate(top_items, 1):
-            uid = str(r.get(a1, "未知"))
-            producer_id = None
-            ccb_by = _normalize_ccb_by(r.get(a4, {}) or {})
-            for actor_id, info in ccb_by.items():
-                if info.get("max"):
-                    producer_id = actor_id
-                    break
-            if not producer_id and ccb_by:
-                try:
-                    producer_id = max(ccb_by.items(), key=lambda x: _safe_int(x[1].get("count", 0), 0))[0]
-                except Exception:
-                    producer_id = None
-
-            nick = await self._get_nickname(event, uid)
-            producer_nick = await self._get_nickname(event, producer_id) if producer_id else "未知"
-            if producer_id:
-                lines.append(f"{i}. {nick}({uid}) - 单次最大：{max_val:.2f}ml（{producer_nick}({producer_id})）")
-            else:
-                lines.append(f"{i}. {nick}({uid}) - 单次最大：{max_val:.2f}ml（{producer_nick}）")
-
-        result = await self._send_rank_result(event, f"单次最大注入排行榜 TOP{len(top_items)}：", lines, len(top_items))
+        result = await self._send_max_rank(event, group_data, "单次最大注入排行榜 TOP{n}：")
         if result:
             yield result
+
 
 
     # ── /xnn ────────────────────────────────────────
     @filter.command("xnn")
     async def cmd_xnn(self, event: AstrMessageEvent):
-        """查看当前群小南梁排行榜。用法：/xnn [数量]，数量上限100。"""
-
-        w_num = 1.0
-        w_vol = 0.1
-        w_action = 0.5
-
+        """查看当前群小南梁排行榜用法：/xnn [数量]，数量上限100"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -1205,148 +1223,57 @@ class ccb(Star):
             yield event.plain_result("当前群暂无ccb记录")
             return
 
-        if not actor_actions:
-            actor_actions = {}
-            for record in group_data:
-                ccb_by = _normalize_ccb_by(record.get(a4, {}))
-                for actor_id, info in ccb_by.items():
-                    actor_actions[actor_id] = actor_actions.get(actor_id, 0) + _safe_int(info.get("count", 0), 0)
-
-        ranking = []
-        for record in group_data:
-            uid = record.get(a1)
-            try:
-                current_num = record.get(a2, 0)
-                if not isinstance(current_num, (int, float)):
-                    current_num = 0
-                num = int(current_num)
-            except Exception:
-                num = 0
-            
-            try:
-                current_vol = record.get(a3, 0)
-                if not isinstance(current_vol, (int, float)):
-                    current_vol = 0
-                vol = float(current_vol)
-            except Exception:
-                vol = 0.0
-            actions = actor_actions.get(uid, 0)
-            xnn_value = num * w_num + vol * w_vol - actions * w_action
-            ranking.append((uid, xnn_value))
-        ranking.sort(key=lambda x: x[1], reverse=True)
-        count = self._get_top_count(event)
-        top_items = ranking[:count]
-
-        lines = []
-        for idx, (uid, xnn_val) in enumerate(top_items, 1):
-            uid = str(uid)
-            nick = await self._get_nickname(event, uid)
-            lines.append(f"{idx}. {nick}({uid}) - XNN值：{xnn_val:.2f}")
-        result = await self._send_rank_result(event, f"💎 小南梁 TOP{len(top_items)} 💎", lines, len(top_items))
+        result = await self._send_xnn_rank(event, group_data, actor_actions, "💎 小南梁 TOP{n} 💎")
         if result:
             yield result
+
 
     # ── 全群日志汇总榜：/ccb占位-all ──────────────────
     @filter.command("ccbtop-all")
     async def cmd_ccbtop_all(self, event: AstrMessageEvent):
-        """查看全部群日志汇总的被 CCB 次数排行榜。用法：/ccbtop-all [数量]，数量上限100。"""
+        """查看全部群日志汇总的被 CCB 次数排行榜用法：/ccbtop-all [数量]，数量上限100"""
         group_data, _, group_count = self._build_all_log_records()
         if not group_data:
             yield event.plain_result("暂无完整日志记录，无法汇总全部群数据")
             return
-
-        count = self._get_top_count(event)
-        top_items = sorted(group_data, key=lambda x: _safe_int(x.get(a2, 0), 0), reverse=True)[:count]
-        lines = []
-        for i, r in enumerate(top_items, 1):
-            uid = str(r.get(a1, "未知"))
-            nick = await self._get_nickname(event, uid)
-            lines.append(f"{i}. {nick}({uid}) - 总次数：{_safe_int(r.get(a2, 0), 0)}")
-        result = await self._send_rank_result(event, f"全群被ccb日志汇总 TOP{len(top_items)}（{group_count}群）：", lines, len(top_items))
+        result = await self._send_top_rank(event, group_data, f"全群被ccb日志汇总 TOP{{n}}（{group_count}群）：", "总次数")
         if result:
             yield result
+
 
     @filter.command("ccbvol-all")
     async def cmd_ccbvol_all(self, event: AstrMessageEvent):
-        """查看全部群日志汇总的累计注入量排行榜。用法：/ccbvol-all [数量]，数量上限100。"""
+        """查看全部群日志汇总的累计注入量排行榜用法：/ccbvol-all [数量]，数量上限100"""
         group_data, _, group_count = self._build_all_log_records()
         if not group_data:
             yield event.plain_result("暂无完整日志记录，无法汇总全部群数据")
             return
-
-        count = self._get_top_count(event)
-        top_items = sorted(group_data, key=lambda x: _safe_float(x.get(a3, 0), 0.0), reverse=True)[:count]
-        lines = []
-        for i, r in enumerate(top_items, 1):
-            uid = str(r.get(a1, "未知"))
-            nick = await self._get_nickname(event, uid)
-            lines.append(f"{i}. {nick}({uid}) - 总注入：{_safe_float(r.get(a3, 0), 0.0):.2f}ml")
-        result = await self._send_rank_result(event, f"全群注入量日志汇总 TOP{len(top_items)}（{group_count}群）：", lines, len(top_items))
+        result = await self._send_vol_rank(event, group_data, f"全群注入量日志汇总 TOP{{n}}（{group_count}群）：", "总注入")
         if result:
             yield result
+
 
     @filter.command("ccbmax-all")
     async def cmd_ccbmax_all(self, event: AstrMessageEvent):
-        """查看全部群日志汇总的单次最大注入排行榜。用法：/ccbmax-all [数量]，数量上限100。"""
+        """查看全部群日志汇总的单次最大注入排行榜用法：/ccbmax-all [数量]，数量上限100"""
         group_data, _, group_count = self._build_all_log_records()
         if not group_data:
             yield event.plain_result("暂无完整日志记录，无法汇总全部群数据")
             return
-
-        count = self._get_top_count(event)
-        entries = sorted(group_data, key=lambda x: _safe_float(x.get(a5, 0), 0.0), reverse=True)[:count]
-        lines = []
-        for i, r in enumerate(entries, 1):
-            uid = str(r.get(a1, "未知"))
-            max_val = _safe_float(r.get(a5, 0), 0.0)
-            ccb_by = _normalize_ccb_by(r.get(a4, {}) or {})
-            producer_id = None
-            for actor_id, info in ccb_by.items():
-                if info.get("max"):
-                    producer_id = actor_id
-                    break
-            nick = await self._get_nickname(event, uid)
-            producer_nick = await self._get_nickname(event, producer_id) if producer_id else "未知"
-            if producer_id:
-                lines.append(f"{i}. {nick}({uid}) - 单次最大：{max_val:.2f}ml（{producer_nick}({producer_id})）")
-            else:
-                lines.append(f"{i}. {nick}({uid}) - 单次最大：{max_val:.2f}ml（{producer_nick}）")
-        result = await self._send_rank_result(event, f"全群单次最大日志汇总 TOP{len(entries)}（{group_count}群）：", lines, len(entries))
+        result = await self._send_max_rank(event, group_data, f"全群单次最大日志汇总 TOP{{n}}（{group_count}群）：")
         if result:
             yield result
 
+
     @filter.command("xnn-all")
     async def cmd_xnn_all(self, event: AstrMessageEvent):
-        """查看全部群日志汇总的小南梁排行榜。用法：/xnn-all [数量]，数量上限100。"""
-        w_num = 1.0
-        w_vol = 0.1
-        w_action = 0.5
-
+        """查看全部群日志汇总的小南梁排行榜用法：/xnn-all [数量]，数量上限100"""
         group_data, actor_actions, group_count = self._build_all_log_records()
         if not group_data:
             yield event.plain_result("暂无完整日志记录，无法汇总全部群数据")
             return
 
-        ranking = []
-        for record in group_data:
-            uid = str(record.get(a1, ""))
-            if not uid:
-                continue
-            num = _safe_int(record.get(a2, 0), 0)
-            vol = _safe_float(record.get(a3, 0), 0.0)
-            actions = _safe_int(actor_actions.get(uid, 0), 0)
-            xnn_value = num * w_num + vol * w_vol - actions * w_action
-            ranking.append((uid, xnn_value))
-        ranking.sort(key=lambda x: x[1], reverse=True)
-
-        count = self._get_top_count(event)
-        top_items = ranking[:count]
-        lines = []
-        for i, (uid, xnn_val) in enumerate(top_items, 1):
-            nick = await self._get_nickname(event, uid)
-            lines.append(f"{i}. {nick}({uid}) - XNN值：{xnn_val:.2f}")
-
-        result = await self._send_rank_result(event, f"💎 全群小南梁日志汇总 TOP{len(top_items)}（{group_count}群） 💎", lines, len(top_items))
+        result = await self._send_xnn_rank(event, group_data, actor_actions, f"💎 全群小南梁日志汇总 TOP{{n}}（{group_count}群） 💎")
         if result:
             yield result
 
@@ -1355,7 +1282,7 @@ class ccb(Star):
 
     @filter.command("ccbclear")
     async def cmd_ccbclear(self, event: AstrMessageEvent):
-        """管理员指令：清除目标的被 CCB 与 CCB 他人记录。用法：/ccbclear [@目标]；未 @ 时默认自己。"""
+        """管理员指令：清除目标的被 CCB 与 CCB 他人记录用法：/ccbclear [@目标]；未 @ 时默认自己"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
@@ -1434,7 +1361,7 @@ class ccb(Star):
     # ── /ccbnodo (管理员) ────────────────────────────
     @filter.command("ccbnodo")
     async def cmd_ccbnodo(self, event: AstrMessageEvent):
-        """管理员指令：切换目标防被 CCB 状态。用法：/ccbnodo [@目标]；未 @ 时默认自己。"""
+        """管理员指令：切换目标防被 CCB 状态用法：/ccbnodo [@目标]；未 @ 时默认自己"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
