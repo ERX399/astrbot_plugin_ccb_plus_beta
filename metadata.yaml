@@ -1,5 +1,5 @@
 name: astrbot_plugin_ccb_plus_beta # 插件唯一识别名
-desc: CCB PLUS Beta，基于 CCB PLUS 的个人定制增强版。 # 插件简短描述
-version: v1.2.4-beta # 插件版本号
+desc: CCB PLUS Beta，指令组增强版。 # 插件简短描述
+version: v1.3.3-beta # 插件版本号
 author: ERX399 # 作者
 repo: https://github.com/ERX399/astrbot_plugin_ccb_plus_beta # 插件仓库地址
