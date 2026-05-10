@@ -31,7 +31,7 @@ def makeit(group_data, target_user_id):
 
 
 class DailyGroupLimiter:
-    """模块：按群聊统计每日 CCB 次数。"""
+    """模块：按群聊内每人统计每日 CCB 次数。"""
 
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -56,30 +56,27 @@ class DailyGroupLimiter:
         except Exception as e:
             logger.warning(f"write daily limit data error: {e}")
 
-    def get_count(self, group_id: str) -> int:
+    def get_user_count(self, group_id: str, user_id: str) -> int:
         data = self._read()
         today = self._today()
-        return int(data.get(today, {}).get(str(group_id), 0))
+        return int(data.get(today, {}).get(str(group_id), {}).get(str(user_id), 0))
 
-    def can_use(self, group_id: str, limit: int) -> tuple[bool, int]:
+    def can_use(self, group_id: str, user_id: str, limit: int) -> tuple[bool, int]:
         if limit <= 0:
             return True, 0
-        used = self.get_count(group_id)
+        used = self.get_user_count(group_id, user_id)
         return used < limit, max(0, limit - used)
 
-    def increase(self, group_id: str, limit: int) -> int:
+    def increase(self, group_id: str, user_id: str, limit: int) -> int:
         if limit <= 0:
             return 0
         data = self._read()
         today = self._today()
-        # 仅保留当天，避免文件长期膨胀
-        data = {today: data.get(today, {})}
-        data[today][str(group_id)] = int(data[today].get(str(group_id), 0)) + 1
+        data.setdefault(today, {}).setdefault(str(group_id), {})
+        data[today][str(group_id)][str(user_id)] = int(data[today][str(group_id)].get(str(user_id), 0)) + 1
         self._write(data)
-        return data[today][str(group_id)]
-
-
-@register("ccb_plus_beta", "ERX399", "和群友赛博sex的插件PLUS Beta：群聊白名单、群单独限制、默认白名单保护、管理清理、防CCB、显示设置、管理员折叠配置", "1.3.3-beta")
+        return data[today][str(group_id)][str(user_id)]
+@register("ccb_plus_beta", "ERX399", "和群友赛博sex的插件PLUS Beta：群聊白名单、群单独限制、默认白名单保护、管理清理、防CCB、显示设置、管理员折叠配置", "1.3.4-beta")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -327,17 +324,17 @@ class ccb(Star):
             return
         self._sync_event_bot_white_list(event)
 
-        daily_limit = self._get_group_daily_limit(group_id)
-        can_use, remain = self.daily_limiter.can_use(group_id, daily_limit)
-        if not can_use:
-            yield event.plain_result(f"本群今日 CCB 次数已达上限（{daily_limit}次），明天再来吧。")
-            return
-
         send_id = str(event.get_sender_id())
         self_id = str(event.get_self_id())
         actor_id = send_id
         now = _time_module.time()
         admin_exempt_yw = bool(self.admin_exempt_yw and await self._is_admin(event))
+
+        daily_limit = self._get_group_daily_limit(group_id)
+        can_use, remain = (True, 0) if admin_exempt_yw else self.daily_limiter.can_use(group_id, send_id, daily_limit)
+        if not can_use:
+            yield event.plain_result(f"你今天在本群的 CCB 次数已达上限（{daily_limit}次），明天再来吧。")
+            return
 
         ban_end = self.ban_list.get(actor_id, 0)
         if now < ban_end and not admin_exempt_yw:
@@ -469,7 +466,7 @@ class ccb(Star):
 
                         all_data[group_id] = group_data
                         self.write_data(all_data)
-                        self.daily_limiter.increase(group_id, daily_limit)
+                        self.daily_limiter.increase(group_id, send_id, daily_limit)
 
                         if (not admin_exempt_yw) and _random_module.random() < self.yw_prob:
                             self.ban_list[actor_id] = now + self.ban_duration
@@ -508,7 +505,7 @@ class ccb(Star):
                 group_data.append(new_record)
                 all_data[group_id] = group_data
                 self.write_data(all_data)
-                self.daily_limiter.increase(group_id, daily_limit)
+                self.daily_limiter.increase(group_id, send_id, daily_limit)
 
                 if is_log:
                     try:
@@ -526,22 +523,12 @@ class ccb(Star):
                 return
 
 
-    # ── 指令组 /ccb ─────────────────────────────────
-    @filter.command_group("ccb")
-    def ccb_group(self):
-        """CCB 指令组。包含 /ccb top、/ccb vol 等排行查询和管理工具。"""
-        pass
 
-    # ── 指令组 /ccb ─────────────────────────────────
-    @filter.command_group("ccb")
-    def ccb_group(self):
-        """CCB 指令组。包含 /ccb top、/ccb vol 等排行查询和管理工具。"""
-        pass
 
     # ── /ccbtop ──────────────────────────────────────
-    @ccb_group.command("top")
+    @filter.command("ccbtop")
     async def cmd_ccbtop(self, event: AstrMessageEvent):
-        """查看当前群被 CCB 次数排行榜 TOP5。用法：/ccb top"""
+        """查看当前群被 CCB 次数排行榜 TOP5。用法：/ccbplus top"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -567,9 +554,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbvol ─────────────────────────────────────
-    @ccb_group.command("vol")
+    @filter.command("ccbvol")
     async def cmd_ccbvol(self, event: AstrMessageEvent):
-        """查看当前群累计注入量排行榜 TOP5。用法：/ccb vol"""
+        """查看当前群累计注入量排行榜 TOP5。用法：/ccbplus vol"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -595,9 +582,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbinfo ────────────────────────────────────
-    @ccb_group.command("info")
+    @filter.command("ccbinfo")
     async def cmd_ccbinfo(self, event: AstrMessageEvent):
-        """查询某人的 CCB 统计信息。用法：/ccb info [@目标]；未 @ 时查询自己。"""
+        """查询某人的 CCB 统计信息。用法：/ccbplus info [@目标]；未 @ 时查询自己。"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -669,9 +656,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbmax ─────────────────────────────────────
-    @ccb_group.command("max")
+    @filter.command("ccbmax")
     async def cmd_ccbmax(self, event: AstrMessageEvent):
-        """查看当前群单次最大注入排行榜 TOP5。用法：/ccb max"""
+        """查看当前群单次最大注入排行榜 TOP5。用法：/ccbplus max"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -740,9 +727,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /xnn ────────────────────────────────────────
-    @ccb_group.command("xnn")
+    @filter.command("xnn")
     async def cmd_xnn(self, event: AstrMessageEvent):
-        """查看当前群小南梁排行榜 TOP5。用法：/ccb xnn"""
+        """查看当前群小南梁排行榜 TOP5。用法：/ccbplus xnn"""
         w_num = 1.0
         w_vol = 0.1
         w_action = 0.5
@@ -791,9 +778,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbclear (管理员) ───────────────────────────
-    @ccb_group.command("clear")
+    @filter.command("ccbclear")
     async def cmd_ccbclear(self, event: AstrMessageEvent):
-        """管理员指令：清除目标的被 CCB 与 CCB 他人记录。用法：/ccb clear [@目标]；未 @ 时默认自己。"""
+        """管理员指令：清除目标的被 CCB 与 CCB 他人记录。用法：/ccbplus clear [@目标]；未 @ 时默认自己。"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
@@ -851,9 +838,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbnodo (管理员) ────────────────────────────
-    @ccb_group.command("nodo")
+    @filter.command("ccbnodo")
     async def cmd_ccbnodo(self, event: AstrMessageEvent):
-        """管理员指令：切换目标防被 CCB 状态。用法：/ccb nodo [@目标]；未 @ 时默认自己。"""
+        """管理员指令：切换目标防被 CCB 状态。用法：/ccbplus nodo [@目标]；未 @ 时默认自己。"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
