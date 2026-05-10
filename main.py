@@ -79,7 +79,7 @@ class DailyGroupLimiter:
         return data[today][str(group_id)]
 
 
-@register("ccb", "Koikokokoro", "和群友赛博sex的插件PLUS Beta：群聊白名单、群单独限制、默认白名单保护、管理清理、防CCB、显示设置、管理员折叠配置", "1.3.2-beta")
+@register("ccb_plus_beta", "ERX399", "和群友赛博sex的插件PLUS Beta：群聊白名单、群单独限制、默认白名单保护、管理清理、防CCB、显示设置、管理员折叠配置", "1.3.3-beta")
 class ccb(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -526,10 +526,22 @@ class ccb(Star):
                 return
 
 
+    # ── 指令组 /ccb ─────────────────────────────────
+    @filter.command_group("ccb")
+    def ccb_group(self):
+        """CCB 指令组。包含 /ccb top、/ccb vol 等排行查询和管理工具。"""
+        pass
+
+    # ── 指令组 /ccb ─────────────────────────────────
+    @filter.command_group("ccb")
+    def ccb_group(self):
+        """CCB 指令组。包含 /ccb top、/ccb vol 等排行查询和管理工具。"""
+        pass
+
     # ── /ccbtop ──────────────────────────────────────
-    @filter.command("ccbtop")
+    @ccb_group.command("top")
     async def cmd_ccbtop(self, event: AstrMessageEvent):
-        """查看当前群被 CCB 次数排行榜 TOP5。用法：/ccbtop"""
+        """查看当前群被 CCB 次数排行榜 TOP5。用法：/ccb top"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -555,9 +567,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbvol ─────────────────────────────────────
-    @filter.command("ccbvol")
+    @ccb_group.command("vol")
     async def cmd_ccbvol(self, event: AstrMessageEvent):
-        """查看当前群累计注入量排行榜 TOP5。用法：/ccbvol"""
+        """查看当前群累计注入量排行榜 TOP5。用法：/ccb vol"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -583,9 +595,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbinfo ────────────────────────────────────
-    @filter.command("ccbinfo")
+    @ccb_group.command("info")
     async def cmd_ccbinfo(self, event: AstrMessageEvent):
-        """查询某人的 CCB 统计信息。用法：/ccbinfo [@目标]；未 @ 时查询自己。"""
+        """查询某人的 CCB 统计信息。用法：/ccb info [@目标]；未 @ 时查询自己。"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -657,9 +669,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbmax ─────────────────────────────────────
-    @filter.command("ccbmax")
+    @ccb_group.command("max")
     async def cmd_ccbmax(self, event: AstrMessageEvent):
-        """查看当前群单次最大注入排行榜 TOP5。用法：/ccbmax"""
+        """查看当前群单次最大注入排行榜 TOP5。用法：/ccb max"""
         group_id = str(event.get_group_id())
         if not self._check_group(group_id):
             return
@@ -728,9 +740,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /xnn ────────────────────────────────────────
-    @filter.command("xnn")
+    @ccb_group.command("xnn")
     async def cmd_xnn(self, event: AstrMessageEvent):
-        """查看当前群小南梁排行榜 TOP5。用法：/xnn"""
+        """查看当前群小南梁排行榜 TOP5。用法：/ccb xnn"""
         w_num = 1.0
         w_vol = 0.1
         w_action = 0.5
@@ -779,9 +791,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbclear (管理员) ───────────────────────────
-    @filter.command("ccbclear")
+    @ccb_group.command("clear")
     async def cmd_ccbclear(self, event: AstrMessageEvent):
-        """管理员指令：清除目标的被 CCB 与 CCB 他人记录。用法：/ccbclear [@目标]；未 @ 时默认自己。"""
+        """管理员指令：清除目标的被 CCB 与 CCB 他人记录。用法：/ccb clear [@目标]；未 @ 时默认自己。"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
@@ -839,9 +851,9 @@ class ccb(Star):
         yield event.plain_result(msg)
 
     # ── /ccbnodo (管理员) ────────────────────────────
-    @filter.command("ccbnodo")
+    @ccb_group.command("nodo")
     async def cmd_ccbnodo(self, event: AstrMessageEvent):
-        """管理员指令：切换目标防被 CCB 状态。用法：/ccbnodo [@目标]；未 @ 时默认自己。"""
+        """管理员指令：切换目标防被 CCB 状态。用法：/ccb nodo [@目标]；未 @ 时默认自己。"""
         if not await self._is_admin(event):
             yield event.plain_result("只有 AstrBot 管理员才能使用此命令")
             return
